@@ -68,7 +68,7 @@ app.param('collectionName', async function(req, res, next, collectionName) {
 });
 
 // Fetch all documents from a collection
-app.get('/collections/:collectionName', async function(req, res, next) {
+app.get('/:collectionName', async function(req, res, next) {
     try{
         const results = await req.collection.find({}).toArray();
         console.log('Retrieved data:', results);
@@ -80,7 +80,7 @@ app.get('/collections/:collectionName', async function(req, res, next) {
 });
 
 // API Route for another collection with sorting and limiting
-app.get('/collections1/:collectionName', async function(req, res, next) {
+app.get('/:collectionName', async function(req, res, next) {
     try{
         const results = await req.collection.find({}, {limit:3, sort: {price:-1}}).toArray();
         console.log('Retrieved data:', results);
@@ -92,7 +92,7 @@ app.get('/collections1/:collectionName', async function(req, res, next) {
 });
 
 // Fetch limited sorted documents from a collection
-app.get('/collections/:collectionName/:max/:sortAspect/:sortAscDesc', async function(req, res, next) {
+app.get('/:collectionName/:max/:sortAspect/:sortAscDesc', async function(req, res, next) {
     try{
         var max = parseInt(req.params.max, 0);
         let sortDirection = 1;
@@ -116,7 +116,7 @@ app.get('/collections/:collectionName/:max/:sortAspect/:sortAscDesc', async func
 });
 
 // Fetch a single document by ID from a collection
-app.get('/collections/:collectionName/:id', async function(req, res, next) {
+app.get('/:collectionName/:id', async function(req, res, next) {
     try{
         const results = await req.collection.findOne({_id:new ObjectId(req.params.id) });
         console.log('Retrieved data:', results);
@@ -125,6 +125,23 @@ app.get('/collections/:collectionName/:id', async function(req, res, next) {
         console.error('Error fetching doc', err.message);
         next(err);
     }    
+});
+
+app.post('/:collectionName', async function(req, res, next) {
+    try {
+        const order = req.body;  // Get the order data sent from the client
+        if (!order.lessonID) {
+          return res.status(400).json({ error: 'Missing required fields' });
+        }
+
+        // Insert the order into the 'order' collection
+        const result = await db1.collection('order').insertOne(order);
+        console.log('Created new order! Lesson added to cart:', result);
+        res.status(201).json(result);  // Send back the inserted order details
+    } catch (err) {
+        console.error('Error inserting order:', err.message);
+        res.status(500).json({ error: 'Error creating order' });
+    }
 });
 
 // Handle missing image files (custom error message)
