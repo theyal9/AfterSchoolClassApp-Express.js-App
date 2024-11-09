@@ -1,15 +1,35 @@
 const express = require("express");
+var http = require("http");
+var morgan = require("morgan");
 const path = require("path");
 const cors = require("cors");
 const propertiesReader = require("properties-reader");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 let app = express();
-app.use(express.json());
-app.use(cors());
-app.set('json spaces', 3);
 
-// Reading properties
+// Middleware
+app.use(express.json());  // Parse incoming JSON requests
+app.use(cors());  // Enable CORS for all routes
+app.use(morgan("short"));  // Log requests
+
+app.set('json spaces', 3);  // Format JSON responses with 3 spaces
+
+// // Logger middleware
+// app.use((req, res, next) => {
+//     console.log(`${req.method} ${req.url} - ${new Date().toISOString()}`);
+//     next();
+// });
+
+// Serve static files from the Vue app
+app.use(express.static(path.join(__dirname, '../AfterSchoolClass-AppVue.js-App')));
+
+// Serve the index.html file on the root route
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, '../AfterSchoolClass-AppVue.js-App/index.html'));
+});
+
+// Reading properties for database connection
 let propertiesPath = path.resolve(__dirname, "./dbconnection.properties");
 let properties = propertiesReader(propertiesPath);
 
@@ -29,10 +49,7 @@ async function connectDB() {
     try {
         await client.connect();
         console.log('Connected to MongoDB');
-        db1 = client.db('lessons');
-        // const collections = await db1.listCollections().toArray();
-        // console.log('Collections:', collections);
-        // app.locals.db = db1;
+        db1 = client.db('AfterSchoolClassApp');
     } catch (err) {
         console.error('MongoDB connection error:', err);
     }
@@ -40,15 +57,17 @@ async function connectDB() {
 
 connectDB();
 
-// Middleware to handle collection name
+// Middleware to handle collection name dynamically
 app.param('collectionName', async function(req, res, next, collectionName) {
-    // req.collection = req.app.locals.db.collection(collectionName);
-    // return next();
+    if (!db1) {
+        return res.status(500).json({ error: 'Database not connected' });
+    }
     req.collection = db1.collection(collectionName);
     console.log('Middleware set collection:', req.collection.collectionName);
     next();
 });
 
+// Fetch all documents from a collection
 app.get('/collections/:collectionName', async function(req, res, next) {
     try{
         const results = await req.collection.find({}).toArray();
@@ -60,6 +79,7 @@ app.get('/collections/:collectionName', async function(req, res, next) {
     }
 });
 
+// API Route for another collection with sorting and limiting
 app.get('/collections1/:collectionName', async function(req, res, next) {
     try{
         const results = await req.collection.find({}, {limit:3, sort: {price:-1}}).toArray();
@@ -71,6 +91,7 @@ app.get('/collections1/:collectionName', async function(req, res, next) {
     }
 });
 
+// Fetch limited sorted documents from a collection
 app.get('/collections/:collectionName/:max/:sortAspect/:sortAscDesc', async function(req, res, next) {
     try{
         var max = parseInt(req.params.max, 0);
@@ -85,9 +106,17 @@ app.get('/collections/:collectionName/:max/:sortAspect/:sortAscDesc', async func
         console.error('Error fetching doc', err.message);
         next(err);
     }
+    // const max = parseInt(req.params.max, 10);
+    // const sortDirection = req.params.sortAscDesc === "desc" ? -1 : 1;
+    // const results = await req.collection.find({})
+    //     .limit(max)
+    //     .sort({ [req.params.sortAspect]: sortDirection })
+    //     .toArray();
+    // res.json(results);
 });
 
-app.get('/collections1/:collectionName/:id', async function(req, res, next) {
+// Fetch a single document by ID from a collection
+app.get('/collections/:collectionName/:id', async function(req, res, next) {
     try{
         const results = await req.collection.findOne({_id:new ObjectId(req.params.id) });
         console.log('Retrieved data:', results);
@@ -98,31 +127,18 @@ app.get('/collections1/:collectionName/:id', async function(req, res, next) {
     }    
 });
 
-// Endpoint to get all documents in the collection
-// app.get('/collections/:collectionName', function(req, res, next) {
-//     req.collection.find({}).toArray(function(err, results) {
-//         if (err) {
-//             return next(err);
-//         }
-//         res.send(results);
-//     });
-// });
-// app.get('/collections/:collectionName', function(req, res, next) {
-//     const page = parseInt(req.query.page) || 1;
-//     const limit = parseInt(req.query.limit) || 100; // Adjust limit as needed
+// Handle missing image files (custom error message)
+app.use('/images', (req, res, next) => {
+    res.status(404).json({ error: "Image file not found" });
+});
 
-//     req.collection.find({})
-//         .skip((page - 1) * limit)
-//         .limit(limit)
-//         .toArray(function(err, results) {
-//             if (err) {
-//                 return next(err);
-//             }
-//             res.send(results);
-//         });
-// });
-
+// Handle missing routes with a custom error message
+app.use((req, res, next) => {
+    res.status(404).send("File not found!");
+});
 
 app.listen(3000, () => {
     console.log("Server is running on port 3000");
 });
+
+// http.createServer(app).listen(3000); // start the server
