@@ -79,17 +79,17 @@ app.get('/:collectionName', async function(req, res, next) {
     }
 });
 
-// API Route for another collection with sorting and limiting
-app.get('/:collectionName', async function(req, res, next) {
-    try{
-        const results = await req.collection.find({}, {limit:3, sort: {price:-1}}).toArray();
-        console.log('Retrieved data:', results);
-        res.json(results);
-    } catch(err){
-        console.error('Error fetching doc', err.message);
-        next(err);
-    }
-});
+// // API Route for another collection with sorting and limiting
+// app.get('/:collectionName', async function(req, res, next) {
+//     try{
+//         const results = await req.collection.find({}, {limit:3, sort: {price:-1}}).toArray();
+//         console.log('Retrieved data:', results);
+//         res.json(results);
+//     } catch(err){
+//         console.error('Error fetching doc', err.message);
+//         next(err);
+//     }
+// });
 
 // Fetch limited sorted documents from a collection
 app.get('/:collectionName/:max/:sortAspect/:sortAscDesc', async function(req, res, next) {
@@ -118,7 +118,7 @@ app.get('/:collectionName/:max/:sortAspect/:sortAscDesc', async function(req, re
 // Fetch a single document by ID from a collection
 app.get('/:collectionName/:id', async function(req, res, next) {
     try{
-        const results = await req.collection.findOne({_id:new ObjectId(req.params.id) });
+        const results = await req.collection.findOne({id: req.params.id });
         console.log('Retrieved data:', results);
         res.json(results);
     } catch(err){
@@ -127,20 +127,125 @@ app.get('/:collectionName/:id', async function(req, res, next) {
     }    
 });
 
-app.post('/:collectionName', async function(req, res, next) {
+// Get the total number of documents in a collection
+// To debug as quatity is still 0 when retrieving from order collection??
+app.get('/:collectionName/count', async function(req, res, next) {
     try {
-        const order = req.body;  // Get the order data sent from the client
+        const { id } = req.query; // Get the id from query parameters
+        
+        if (id) {
+            // Try to find a document with the provided lessonID
+            const document = await req.collection.findOne({ lessonID: id });
+
+            if (document && document.quantity !== undefined) {
+                // If the document exists and has a quantity field, return its quantity
+                res.json(document.quantity);
+            } else {
+                // If no document is found or no quantity field exists, return 0
+                res.json(0);
+            }
+        } else {
+            // If no id is provided, get the total count of documents in the collection
+            const count = await req.collection.countDocuments();
+            res.json({ count });
+        }
+    } catch (err) {
+        console.error('Error fetching count', err.message);
+        res.status(500).json({ error: 'Error counting documents' });
+        next(err);
+    }
+});
+// app.get('/:collectionName/count', async function(req, res, next) {
+//     try {
+//         const { id } = req.query; // Get the id from query parameters
+        
+//         if (id) {
+//             // If an id is provided, count how many times the id appears in the collection
+//             const count = await req.collection.countDocuments({ lessonID: id });
+            
+//             console.log(`Count for id ${id}:`, count); 
+
+//             // If no matching id is found, count will be 0
+//             if (count === 0) {
+//                 res.json(0);
+//             } else {
+//                 res.json({ count });
+//             }
+//         } else {
+//             // If no id is provided, get the total count of documents in the collection
+//             const count = await req.collection.countDocuments();
+//             res.json({ count });
+//         }
+//     } catch (err) {
+//         console.error('Error fetching count', err.message);
+//         res.status(500).json({ error: 'Error counting documents' });
+//         next(err);
+//     }
+// });
+
+app.post('/addOrder', async function(req, res, next) {
+    try {
+        const order = req.body;
+
         if (!order.lessonID) {
-          return res.status(400).json({ error: 'Missing required fields' });
+            return res.status(400).json({ error: 'Missing required fields' });
         }
 
-        // Insert the order into the 'order' collection
-        const result = await db1.collection('order').insertOne(order);
-        console.log('Created new order! Lesson added to cart:', result);
-        res.status(201).json(result);  // Send back the inserted order details
+        // Check if the order with the specified lessonID already exists
+        const existingOrder = await db1.collection('order').findOne({ lessonID: order.lessonID });
+
+        if (existingOrder) {
+            // If it exists, increment the quantity by 1
+            const result = await db1.collection('order').updateOne(
+                { lessonID: order.lessonID },
+                { $inc: { quantity: 1 } }
+            );
+            console.log('Updated existing order, increased quantity:', result);
+            res.status(200).json({ message: 'Order quantity updated', result });
+        } else {
+            // If it does not exist, insert a new document with quantity set to 1
+            const newOrder = { ...order, quantity: 1 };
+            const result = await db1.collection('order').insertOne(newOrder);
+            console.log('Created new order! Lesson added to cart:', result);
+            res.status(201).json({ message: 'New order created', result });
+        }
+
     } catch (err) {
-        console.error('Error inserting order:', err.message);
-        res.status(500).json({ error: 'Error creating order' });
+        console.error('Error inserting or updating order:', err.message);
+        res.status(500).json({ error: `Error creating or updating order: ${err.message}` });
+    }
+});
+
+// PUT request to update spaces for a lesson in a collection
+app.put('/lesson/:id', async function(req, res, next) {
+    const lessonId = parseInt(req.params.id, 10);  // The ID of the lesson to update
+    const { spaces } = req.body;  // The space change (either +1 or -1)
+
+    try {
+        if (typeof spaces !== 'number' || (spaces !== 1 && spaces !== -1)) {
+            return res.status(400).json({ error: 'Invalid spaces value.' });
+        }
+
+        // Log the incoming request details for debugging
+        console.log('Updating lesson spaces:', { lessonId, spaces });
+
+        // Update the spaces field based on spaces (+1 or -1)
+        const updateResponse = await db1.collection('lesson').updateOne(
+            { id: lessonId },  // Find the lesson by ID
+            { $inc: { spaces: spaces } }  // Increment or decrement spaces
+        );
+
+        if (updateResponse.modifiedCount === 0) {
+            return res.status(404).json({ error: 'Lesson not found or no changes made' });
+        }
+
+        // Return the updated lesson document
+        const updatedLesson = await db1.collection('lesson').findOne({ id: lessonId });
+        res.json(updatedLesson);
+
+    } catch (error) {
+        console.error('Error updating lesson spaces:', error);
+        res.status(500).json({ error: 'Error updating lesson spaces' });
     }
 });
 
