@@ -94,7 +94,7 @@ app.get('/:collectionName', async function(req, res, next) {
 // Fetch limited sorted documents from a collection
 app.get('/:collectionName/:max/:sortAspect/:sortAscDesc', async function(req, res, next) {
     try{
-        var max = parseInt(req.params.max, 0);
+        var max = parseInt(req.params.max, 100);
         let sortDirection = 1;
         if (req.params.sortAscDesc === "desc"){
             sortDirection = -1;
@@ -128,25 +128,25 @@ app.get('/:collectionName/:id', async function(req, res, next) {
 });
 
 // Get the total number of documents in a collection
-// To debug as quatity is still 0 when retrieving from order collection??
-app.get('/:collectionName/count', async function(req, res, next) {
+app.get('/:collectionName/count/:id', async function(req, res, next) {
     try {
-        const { id } = req.query; // Get the id from query parameters
-        
+        const { id } = req.params;  // Corrected extraction of id
+        const collection = req.app.locals.db.collection(req.params.collectionName);  // Get collection
+
         if (id) {
-            // Try to find a document with the provided lessonID
-            const document = await req.collection.findOne({ lessonID: id });
+            // Find document by lessonID
+            const document = await collection.findOne({ lessonID: parseInt(id) });
 
             if (document && document.quantity !== undefined) {
-                // If the document exists and has a quantity field, return its quantity
-                res.json(document.quantity);
+                // Return the quantity field
+                res.json({ quantity: document.quantity });
             } else {
-                // If no document is found or no quantity field exists, return 0
-                res.json(0);
+                // Return 0 if no document or quantity field is found
+                res.json({ quantity: 0 });
             }
         } else {
-            // If no id is provided, get the total count of documents in the collection
-            const count = await req.collection.countDocuments();
+            // If no id provided, return document count
+            const count = await collection.countDocuments();
             res.json({ count });
         }
     } catch (err) {
@@ -155,33 +155,6 @@ app.get('/:collectionName/count', async function(req, res, next) {
         next(err);
     }
 });
-// app.get('/:collectionName/count', async function(req, res, next) {
-//     try {
-//         const { id } = req.query; // Get the id from query parameters
-        
-//         if (id) {
-//             // If an id is provided, count how many times the id appears in the collection
-//             const count = await req.collection.countDocuments({ lessonID: id });
-            
-//             console.log(`Count for id ${id}:`, count); 
-
-//             // If no matching id is found, count will be 0
-//             if (count === 0) {
-//                 res.json(0);
-//             } else {
-//                 res.json({ count });
-//             }
-//         } else {
-//             // If no id is provided, get the total count of documents in the collection
-//             const count = await req.collection.countDocuments();
-//             res.json({ count });
-//         }
-//     } catch (err) {
-//         console.error('Error fetching count', err.message);
-//         res.status(500).json({ error: 'Error counting documents' });
-//         next(err);
-//     }
-// });
 
 app.post('/addOrder', async function(req, res, next) {
     try {
