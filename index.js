@@ -130,10 +130,10 @@ app.get('/:collectionName/:id', async function(req, res, next) {
 // Get the total number of documents in a collection
 app.get('/:collectionName/count/:id', async function(req, res, next) {
     try {
-        const { id } = req.params;  // Corrected extraction of id
+        const { id } = req.params.id; 
         const collection = req.app.locals.db.collection(req.params.collectionName);  // Get collection
 
-        if (id) {
+        if (id != undefined) {
             // Find document by lessonID
             const document = await collection.findOne({ lessonID: parseInt(id) });
 
