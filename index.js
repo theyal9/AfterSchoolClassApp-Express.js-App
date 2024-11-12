@@ -67,22 +67,10 @@ app.param('collectionName', async function(req, res, next, collectionName) {
     next();
 });
 
-// Fetch all documents from a collection
-app.get('/:collectionName', async function(req, res, next) {
-    try{
-        const results = await req.collection.find({}).toArray();
-        console.log('Retrieved data:', results);
-        res.json(results);
-    } catch(err){
-        console.error('Error fetching doc', err.message);
-        next(err);
-    }
-});
-
-// // API Route for another collection with sorting and limiting
+// // Fetch all documents from a collection
 // app.get('/:collectionName', async function(req, res, next) {
 //     try{
-//         const results = await req.collection.find({}, {limit:3, sort: {price:-1}}).toArray();
+//         const results = await req.collection.find({}).toArray();
 //         console.log('Retrieved data:', results);
 //         res.json(results);
 //     } catch(err){
@@ -105,87 +93,6 @@ app.get('/:collectionName/:max/:sortAspect/:sortAscDesc', async function(req, re
     } catch(err){
         console.error('Error fetching doc', err.message);
         next(err);
-    }
-    // const max = parseInt(req.params.max, 10);
-    // const sortDirection = req.params.sortAscDesc === "desc" ? -1 : 1;
-    // const results = await req.collection.find({})
-    //     .limit(max)
-    //     .sort({ [req.params.sortAspect]: sortDirection })
-    //     .toArray();
-    // res.json(results);
-});
-
-// Fetch a single document by ID from a collection
-app.get('/:collectionName/:id', async function(req, res, next) {
-    try{
-        const results = await req.collection.findOne({id: req.params.id });
-        console.log('Retrieved data:', results);
-        res.json(results);
-    } catch(err){
-        console.error('Error fetching doc', err.message);
-        next(err);
-    }    
-});
-
-// Get the total number of documents in a collection
-app.get('/:collectionName/count/:id', async function(req, res, next) {
-    try {
-        const { id } = req.params.id; 
-        const collection = req.app.locals.db.collection(req.params.collectionName);  // Get collection
-
-        if (id != undefined) {
-            // Find document by lessonID
-            const document = await collection.findOne({ lessonID: parseInt(id) });
-
-            if (document && document.quantity !== undefined) {
-                // Return the quantity field
-                res.json({ quantity: document.quantity });
-            } else {
-                // Return 0 if no document or quantity field is found
-                res.json({ quantity: 0 });
-            }
-        } else {
-            // If no id provided, return document count
-            const count = await collection.countDocuments();
-            res.json({ count });
-        }
-    } catch (err) {
-        console.error('Error fetching count', err.message);
-        res.status(500).json({ error: 'Error counting documents' });
-        next(err);
-    }
-});
-
-app.post('/addOrder', async function(req, res, next) {
-    try {
-        const order = req.body;
-
-        if (!order.lessonID) {
-            return res.status(400).json({ error: 'Missing required fields' });
-        }
-
-        // Check if the order with the specified lessonID already exists
-        const existingOrder = await db1.collection('order').findOne({ lessonID: order.lessonID });
-
-        if (existingOrder) {
-            // If it exists, increment the quantity by 1
-            const result = await db1.collection('order').updateOne(
-                { lessonID: order.lessonID },
-                { $inc: { quantity: 1 } }
-            );
-            console.log('Updated existing order, increased quantity:', result);
-            res.status(200).json({ message: 'Order quantity updated', result });
-        } else {
-            // If it does not exist, insert a new document with quantity set to 1
-            const newOrder = { ...order, quantity: 1 };
-            const result = await db1.collection('order').insertOne(newOrder);
-            console.log('Created new order! Lesson added to cart:', result);
-            res.status(201).json({ message: 'New order created', result });
-        }
-
-    } catch (err) {
-        console.error('Error inserting or updating order:', err.message);
-        res.status(500).json({ error: `Error creating or updating order: ${err.message}` });
     }
 });
 
@@ -222,6 +129,39 @@ app.put('/lesson/:id', async function(req, res, next) {
     }
 });
 
+app.post('/addOrder', async function(req, res, next) {
+    try {
+        const order = req.body;
+
+        if (!order.lessonID) {
+            return res.status(400).json({ error: 'Missing required fields' });
+        }
+
+        // Check if the order with the specified lessonID already exists
+        const existingOrder = await db1.collection('order').findOne({ lessonID: order.lessonID });
+
+        if (existingOrder) {
+            // If it exists, increment the quantity by 1
+            const result = await db1.collection('order').updateOne(
+                { lessonID: order.lessonID },
+                { $inc: { quantity: 1 } }
+            );
+            console.log('Updated existing order, increased quantity:', result);
+            res.status(200).json({ message: 'Order quantity updated', result });
+        } else {
+            // If it does not exist, insert a new document with quantity set to 1
+            const newOrder = { ...order, quantity: 1 };
+            const result = await db1.collection('order').insertOne(newOrder);
+            console.log('Created new order! Lesson added to cart:', result);
+            res.status(201).json({ message: 'New order created', result });
+        }
+
+    } catch (err) {
+        console.error('Error inserting or updating order:', err.message);
+        res.status(500).json({ error: `Error creating or updating order: ${err.message}` });
+    }
+});
+
 // Handle missing image files (custom error message)
 app.use('/images', (req, res, next) => {
     res.status(404).json({ error: "Image file not found" });
@@ -235,5 +175,3 @@ app.use((req, res, next) => {
 app.listen(3000, () => {
     console.log("Server is running on port 3000");
 });
-
-// http.createServer(app).listen(3000); // start the server
