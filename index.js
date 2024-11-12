@@ -79,6 +79,18 @@ app.param('collectionName', async function(req, res, next, collectionName) {
 //     }
 // });
 
+// Fetch all documents from lesson collection
+app.get('/:lessons', async function(req, res, next) {
+    try{
+        const results = await db1.collection('lesson').find({}).toArray();
+        console.log('Retrieved data:', results);
+        res.json(results);
+    } catch(err){
+        console.error('Error fetching doc', err.message);
+        next(err);
+    }
+});
+
 // Fetch limited sorted documents from a collection
 app.get('/:collectionName/:max/:sortAspect/:sortAscDesc', async function(req, res, next) {
     try{
@@ -99,10 +111,10 @@ app.get('/:collectionName/:max/:sortAspect/:sortAscDesc', async function(req, re
 // PUT request to update spaces for a lesson in a collection
 app.put('/lesson/:id', async function(req, res, next) {
     const lessonId = parseInt(req.params.id, 10);  // The ID of the lesson to update
-    const { spaces } = req.body;  // The space change (either +1 or -1)
+    const { spaces } = req.body;
 
     try {
-        if (typeof spaces !== 'number' || (spaces !== 1 && spaces !== -1)) {
+        if (typeof spaces !== 'number') {
             return res.status(400).json({ error: 'Invalid spaces value.' });
         }
 
@@ -112,7 +124,7 @@ app.put('/lesson/:id', async function(req, res, next) {
         // Update the spaces field based on spaces (+1 or -1)
         const updateResponse = await db1.collection('lesson').updateOne(
             { id: lessonId },  // Find the lesson by ID
-            { $inc: { spaces: spaces } }  // Increment or decrement spaces
+            { $set: { spaces: spaces } }  // $set to update the spaces field
         );
 
         if (updateResponse.modifiedCount === 0) {
@@ -133,32 +145,37 @@ app.post('/addOrder', async function(req, res, next) {
     try {
         const order = req.body;
 
-        if (!order.lessonID) {
-            return res.status(400).json({ error: 'Missing required fields' });
+        // Validate required fields
+        if (!order.firstName || !order.lastName || !order.address || !order.city || !order.zip ||
+            !order.state || !order.phoneNumber || !order.method || !order.lessonIDs || !Array.isArray(order.lessonIDs)) {
+            return res.status(400).json({ error: 'Missing or invalid required fields' });
         }
 
-        // Check if the order with the specified lessonID already exists
-        const existingOrder = await db1.collection('order').findOne({ lessonID: order.lessonID });
+        const count = await db1.collection('order').countDocuments();
 
-        if (existingOrder) {
-            // If it exists, increment the quantity by 1
-            const result = await db1.collection('order').updateOne(
-                { lessonID: order.lessonID },
-                { $inc: { quantity: 1 } }
-            );
-            console.log('Updated existing order, increased quantity:', result);
-            res.status(200).json({ message: 'Order quantity updated', result });
-        } else {
-            // If it does not exist, insert a new document with quantity set to 1
-            const newOrder = { ...order, quantity: 1 };
-            const result = await db1.collection('order').insertOne(newOrder);
-            console.log('Created new order! Lesson added to cart:', result);
-            res.status(201).json({ message: 'New order created', result });
-        }
+        // Prepare the order data to save
+        const orderData = {
+            id: count + 1 + order.zip,
+            firstName: order.firstName,
+            lastName: order.lastName,
+            address: order.address,
+            city: order.city,
+            zip: order.zip,
+            state: order.state,
+            phoneNumber: order.phoneNumber,
+            method: order.method,
+            sendGift: order.sendGift,
+            lessonIDs: order.lessonIDs
+        };
 
-    } catch (err) {
-        console.error('Error inserting or updating order:', err.message);
-        res.status(500).json({ error: `Error creating or updating order: ${err.message}` });
+        // Insert order data into the MongoDB collection
+        const result = await db1.collection('order').insertOne(orderData);
+
+        res.status(201).json({ message: 'Order saved successfully', orderId: result.insertedId });
+    
+    } catch (error) {
+        console.error("Error saving order:", error);
+        res.status(500).json({ message: 'Failed to save order' });
     }
 });
 
