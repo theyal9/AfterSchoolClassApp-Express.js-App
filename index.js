@@ -80,7 +80,7 @@ app.param('collectionName', async function(req, res, next, collectionName) {
 // });
 
 // Fetch all documents from lesson collection
-app.get('/:lessons', async function(req, res, next) {
+app.get('/lessons', async function(req, res, next) {
     try{
         const results = await db1.collection('lesson').find({}).toArray();
         console.log('Retrieved data:', results);
@@ -173,6 +173,35 @@ app.post('/addOrder', async function(req, res, next) {
     } catch (error) {
         console.error("Error saving order:", error);
         res.status(500).json({ message: 'Failed to save order' });
+    }
+});
+
+// Full-text search route
+app.get('/search/:query', async function (req, res, next) {
+    const searchTerm = req.params.query; // Get the search term from query parameters
+    const isNumeric = /^\d+(\.\d+)?$/.test(searchTerm); // Check if search term is a number
+
+    // Build the query with regex for text fields
+    const query = {
+        $or: [
+            { subject: { $regex: searchTerm, $options: 'i' } },
+            { location: { $regex: searchTerm, $options: 'i' } }
+        ]
+    };
+
+    // Add price search if search term is numeric
+    if (isNumeric) {
+        const numericValue = parseFloat(searchTerm);
+        query.$or.push({ price: numericValue });
+        query.$or.push({ spaces: numericValue });
+    }
+    
+    try {
+        const results = await db1.collection('lesson').find(query).toArray();
+        res.json(results); // Return matched lessons
+    } catch (err) {
+        console.error('Error performing search:', err);
+        res.status(500).json({ error: 'Error performing search' });
     }
 });
 
