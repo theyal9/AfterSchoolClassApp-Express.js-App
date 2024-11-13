@@ -151,11 +151,8 @@ app.post('/addOrder', async function(req, res, next) {
             return res.status(400).json({ error: 'Missing or invalid required fields' });
         }
 
-        const count = await db1.collection('order').countDocuments();
-
         // Prepare the order data to save
         const orderData = {
-            id: count + 1 + order.zip,
             firstName: order.firstName,
             lastName: order.lastName,
             address: order.address,
