@@ -18,12 +18,6 @@ app.use(morgan("short"));  // Log requests in a short format
 // Set JSON response formatting with 3 spaces for readability
 app.set('json spaces', 3);
 
-// // Logger middleware
-// app.use((req, res, next) => {
-//     console.log(`${req.method} ${req.url} - ${new Date().toISOString()}`);
-//     next();
-// });
-
 // Serve static files from the Vue app directory
 app.use(express.static(path.join(__dirname, '../AfterSchoolClass-AppVue.js-App')));
 
