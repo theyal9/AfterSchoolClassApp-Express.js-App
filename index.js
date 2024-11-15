@@ -67,17 +67,17 @@ app.param('collectionName', async function(req, res, next, collectionName) {
     next();  // Proceed to the next middleware or route handler
 });
 
-// // Fetch all documents from a collection
-// app.get('/:collectionName', async function(req, res, next) {
-//     try{
-//         const results = await req.collection.find({}).toArray();
-//         console.log('Retrieved data:', results);
-//         res.json(results);
-//     } catch(err){
-//         console.error('Error fetching doc', err.message);
-//         next(err);
-//     }
-// });
+// Fetch all documents from a collection
+app.get('/:collectionName', async function(req, res, next) {
+    try{
+        const results = await req.collection.find({}).toArray();
+        console.log('Retrieved data:', results);
+        res.json(results);
+    } catch(err){
+        console.error('Error fetching doc', err.message);
+        next(err);
+    }
+});
 
 // Fetch all documents from the 'lesson' collection
 app.get('/lessons', async function(req, res, next) {
