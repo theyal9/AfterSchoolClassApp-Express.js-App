@@ -21,11 +21,6 @@ app.set('json spaces', 3);
 // Serve static files from the Vue app directory
 app.use(express.static(path.join(__dirname, '../AfterSchoolClass-AppVue.js-App')));
 
-// // Serve the index.html file on the root route
-// app.get('/', (req, res) => {
-//     res.sendFile(path.join(__dirname, '../AfterSchoolClass-AppVue.js-App/index.html'));
-// });
-
 // Reading properties for database connection from a properties file
 let propertiesPath = path.resolve(__dirname, "./dbconnection.properties");
 let properties = propertiesReader(propertiesPath);
